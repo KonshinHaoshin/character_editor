@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useCharacterData } from '../hooks/useCharacterData'
 import { useCharacterState } from '../hooks/useCharacterState'
+import { applyLayerStrings } from '../utils/parser'
 import SimpleCanvas from './SimpleCanvas'
 
 const SimpleCharacterEditor: React.FC = () => {
@@ -23,6 +24,86 @@ const SimpleCharacterEditor: React.FC = () => {
     } = useCharacterState(characterData)
 
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+
+    const toggleGroup = (groupName: string) => {
+        setExpandedGroups(prev => {
+            const newSet = new Set(prev)
+            if (newSet.has(groupName)) {
+                newSet.delete(groupName)
+            } else {
+                newSet.add(groupName)
+            }
+            return newSet
+        })
+    }
+
+    const generateExpression = () => {
+        if (!characterData) return 'Default'
+
+        const userPresetOrder = Array.from(activeCompositions)
+        const presetOnlyStates: Record<string, boolean> = {}
+
+        // 1. Calculate states based only on presets
+        applyLayerStrings(characterData.defaultComposition.layers, presetOnlyStates, characterData.layers)
+
+        const applyCompositionRecursive = (compNames: string[], targetStates: Record<string, boolean>) => {
+            compNames.forEach(compName => {
+                const parts = characterData.compositions[compName]
+                if (!parts) return
+                parts.forEach(part => {
+                    if (characterData?.compositions[part]) {
+                        applyCompositionRecursive([part], targetStates)
+                    } else {
+                        applyLayerStrings([part], targetStates, characterData!.layers)
+                    }
+                })
+            })
+        }
+        applyCompositionRecursive(userPresetOrder, presetOnlyStates)
+
+        // 2. Compare currentStates with presetOnlyStates to find overrides
+        const requiredOverrides: Record<string, boolean> = {}
+        const overriddenGroups = new Set<string>()
+
+        const allLayerIds = new Set([...Object.keys(currentStates), ...Object.keys(presetOnlyStates)])
+
+        allLayerIds.forEach(layerId => {
+            const finalState = !!currentStates[layerId]
+            const presetState = !!presetOnlyStates[layerId]
+            if (finalState !== presetState) {
+                const layer = characterData.layers.find(l => l.id === layerId)
+                if (layer) {
+                    requiredOverrides[layer.id] = finalState
+                    overriddenGroups.add(layer.group)
+                }
+            }
+        })
+
+        const overrideExpressions: string[] = []
+        for (const groupName of overriddenGroups) {
+            const activeLayersInGroup = characterData.layers.filter(l => l.group === groupName && currentStates[l.id])
+
+            if (activeLayersInGroup.length === 0) {
+                overrideExpressions.push(`${groupName}-`)
+            } else if (activeLayersInGroup.length === 1) {
+                const activeLayer = activeLayersInGroup[0]
+                overrideExpressions.push(`${activeLayer.group}>${activeLayer.name}`)
+            } else {
+                characterData.layers.forEach(layer => {
+                    if (layer.group === groupName && requiredOverrides.hasOwnProperty(layer.id)) {
+                        const op = requiredOverrides[layer.id] ? '+' : '-'
+                        overrideExpressions.push(`${layer.group}${op}${layer.name}`)
+                    }
+                })
+            }
+        }
+
+        let expression = userPresetOrder.join(',')
+        if (overrideExpressions.length > 0) {
+            expression += (expression ? ',' : '') + overrideExpressions.sort().join(',')
+        }
+        return expression || 'Default'
+    }
 
     const exportImage = async (format: 'png' | 'webp') => {
         if (!characterData) return
@@ -69,7 +150,7 @@ const SimpleCharacterEditor: React.FC = () => {
             // 按渲染顺序绘制
             activeLayers
                 .sort((a, b) => a.order - b.order)
-                .forEach((layer, index) => {
+                .forEach((_, index) => {
                     const img = loadedImages[index]
                     ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight)
                 })
@@ -109,11 +190,6 @@ const SimpleCharacterEditor: React.FC = () => {
         marginBottom: '8px'
     }
 
-    const subtitleStyle: React.CSSProperties = {
-        fontSize: '16px',
-        color: '#6b7280'
-    }
-
     const gridStyle: React.CSSProperties = {
         display: 'grid',
         gridTemplateColumns: '1.5fr 1.5fr', // 让左右更平衡，右侧有更多空间
@@ -124,13 +200,15 @@ const SimpleCharacterEditor: React.FC = () => {
     const leftPanelStyle: React.CSSProperties = {
         display: 'flex',
         flexDirection: 'column',
-         gap: '28px'
-     }
+        gap: '16px'
+    }
 
     const rightPanelStyle: React.CSSProperties = {
         display: 'flex',
         flexDirection: 'column',
-        gap: '24px'
+        gap: '24px',
+        position: 'sticky',
+        top: '20px'
     }
 
     const cardStyle: React.CSSProperties = {
@@ -288,37 +366,75 @@ const SimpleCharacterEditor: React.FC = () => {
             <div style={gridStyle}>
                 {/* 左侧控制面板 */}
                 <div style={leftPanelStyle}>
-                    {/* 角色选择 */}
+                    {/* 控制中心 (合并了 配置、角色、操作) */}
                     <div style={cardStyle}>
-                        <h3 style={cardTitleStyle}>
-                            <span>👤</span>
-                            角色选择
-                        </h3>
-                        <select
-                            style={selectStyle}
-                            value={currentCharacter}
-                            onChange={(e) => setCurrentCharacter(e.target.value)}
-                            disabled={loading}
-                        >
-                            {characters.map((character) => (
-                                <option key={character} value={character}>
-                                    {character}
-                                </option>
-                            ))}
-                        </select>
-                        {loading && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6b7280' }}>
-                                <div style={{
-                                    width: '16px',
-                                    height: '16px',
-                                    border: '2px solid #e5e7eb',
-                                    borderTopColor: '#3b82f6',
-                                    borderRadius: '50%',
-                                    animation: 'spin 1s linear infinite'
-                                }} />
-                                加载角色数据中...
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <h3 style={{ ...cardTitleStyle, marginBottom: 0 }}>
+                                <span>⚙️</span> 控制中心
+                            </h3>
+                            <Button onClick={resetToDefault} variant="outline" style={{ minHeight: '32px', padding: '0 12px', fontSize: '12px' }}>
+                                🔄 一键重置
+                            </Button>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                            <div>
+                                <label style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px', display: 'block' }}>选择角色</label>
+                                <select
+                                    style={{ ...selectStyle, marginBottom: 0, padding: '8px 12px' }}
+                                    value={currentCharacter}
+                                    onChange={(e) => setCurrentCharacter(e.target.value)}
+                                    disabled={loading}
+                                >
+                                    {characters.map((character) => (
+                                        <option key={character} value={character}>
+                                            {character}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
-                        )}
+                            <div>
+                                <label style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px', display: 'block' }}>快速导出</label>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <Button onClick={() => exportImage('png')} variant="secondary" style={{ flex: 1, minHeight: '38px', fontSize: '12px' }}>
+                                        PNG
+                                    </Button>
+                                    <Button onClick={() => exportImage('webp')} variant="secondary" style={{ flex: 1, minHeight: '38px', fontSize: '12px' }}>
+                                        WebP
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                <label style={{ fontSize: '12px', color: '#6b7280' }}>当前姿势配置代码</label>
+                                <span 
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(generateExpression())
+                                        alert('已复制到剪贴板')
+                                    }}
+                                    style={{ fontSize: '12px', color: '#3b82f6', cursor: 'pointer', fontWeight: '500' }}
+                                >
+                                    📋 点击复制
+                                </span>
+                            </div>
+                            <div style={{
+                                backgroundColor: '#f9fafb',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '6px',
+                                padding: '10px',
+                                fontSize: '12px',
+                                fontFamily: 'monospace',
+                                wordBreak: 'break-all',
+                                color: '#374151',
+                                minHeight: '32px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}>
+                                {generateExpression()}
+                            </div>
+                        </div>
                     </div>
 
                     {/* 姿势选择 */}
@@ -363,6 +479,108 @@ const SimpleCharacterEditor: React.FC = () => {
                         </div>
                     )}
 
+                    {/* 差分细节调整 - 新增 */}
+                    {characterData && (
+                        <div style={cardStyle}>
+                            <h3 style={cardTitleStyle}>
+                                <span>🔍</span>
+                                差分细节调整
+                                <span style={{
+                                    fontSize: '12px',
+                                    backgroundColor: '#fef3c7',
+                                    color: '#92400e',
+                                    padding: '2px 8px',
+                                    borderRadius: '12px',
+                                    marginLeft: '8px'
+                                }}>
+                                    {Object.keys(currentStates).filter(id => currentStates[id]).length} 图层已开启
+                                </span>
+                            </h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {Array.from(new Set(characterData.layers.map(l => l.group)))
+                                    .sort()
+                                    .map(groupName => {
+                                        const isExpanded = expandedGroups.has(groupName)
+                                        const groupLayers = characterData.layers.filter(l => l.group === groupName)
+                                        const activeInGroup = groupLayers.filter(l => currentStates[l.id]).length
+
+                                        return (
+                                            <div key={groupName} style={{
+                                                border: '1px solid #f3f4f6',
+                                                borderRadius: '8px',
+                                                overflow: 'hidden'
+                                            }}>
+                                                <div 
+                                                    onClick={() => toggleGroup(groupName)}
+                                                    style={{
+                                                        padding: '10px 12px',
+                                                        backgroundColor: isExpanded ? '#f9fafb' : 'white',
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                        cursor: 'pointer',
+                                                        userSelect: 'none'
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <span style={{ fontSize: '12px', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                                                        <span style={{ fontSize: '14px', fontWeight: '500' }}>{groupName}</span>
+                                                        {activeInGroup > 0 && (
+                                                            <span style={{ fontSize: '11px', color: '#3b82f6', fontWeight: 'bold' }}>({activeInGroup})</span>
+                                                        )}
+                                                    </div>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            clearGroupOverrides(groupName)
+                                                        }}
+                                                        style={{
+                                                            fontSize: '11px',
+                                                            color: '#ef4444',
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            padding: '4px'
+                                                        }}
+                                                    >
+                                                        清空
+                                                    </button>
+                                                </div>
+                                                {isExpanded && (
+                                                    <div style={{
+                                                        padding: '12px',
+                                                        backgroundColor: 'white',
+                                                        display: 'flex',
+                                                        flexWrap: 'wrap',
+                                                        gap: '6px',
+                                                        borderTop: '1px solid #f3f4f6'
+                                                    }}>
+                                                        {groupLayers.map(layer => {
+                                                            const isActive = !!currentStates[layer.id]
+                                                            return (
+                                                                <Button
+                                                                    key={layer.id}
+                                                                    onClick={() => toggleLayer(layer.id)}
+                                                                    variant={isActive ? 'primary' : 'outline'}
+                                                                    style={{ 
+                                                                        padding: '4px 8px', 
+                                                                        fontSize: '12px', 
+                                                                        minHeight: '30px' 
+                                                                    }}
+                                                                >
+                                                                    {layer.name}
+                                                                </Button>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                            </div>
+                        </div>
+                    )}
+
                 </div>
 
                 {/* 右侧画布区域 */}
@@ -398,51 +616,6 @@ const SimpleCharacterEditor: React.FC = () => {
                                 <p>加载角色数据中...</p>
                             </div>
                         )}
-                    </div>
-
-                    {/* 操作按钮 - 放在画布下面 */}
-                    <div style={cardStyle}>
-                        <h3 style={cardTitleStyle}>
-                            <span>⚙️</span>
-                            操作
-                        </h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                                <Button onClick={resetToDefault} variant="outline" style={{ flex: 1 }}>
-                                    🔄 一键重置
-                                </Button>
-                            </div>
-
-                            <div style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '12px',
-                                borderTop: '1px solid #e5e7eb',
-                                paddingTop: '16px'
-                            }}>
-                                <div style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>导出格式</div>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <Button
-                                        onClick={() => exportImage('png')}
-                                        variant="secondary"
-                                        style={{ flex: 1 }}
-                                    >
-                                        💾 PNG
-                                    </Button>
-                                    <Button
-                                        onClick={() => exportImage('webp')}
-                                        variant="secondary"
-                                        style={{ flex: 1 }}
-                                    >
-                                        🖼️ WebP
-                                    </Button>
-                                </div>
-                                <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: '1.4' }}>
-                                    <div>• PNG: 无损质量，兼容性好</div>
-                                    <div>• WebP: 体积更小，适合网页使用</div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>

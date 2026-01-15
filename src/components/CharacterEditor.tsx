@@ -156,6 +156,59 @@ const CharacterEditor: React.FC = () => {
                         loading={loading}
                     />
 
+                    {/* 操作面板 */}
+                    <Card>
+                        <CardContent className="pt-6">
+                            <div className="space-y-4">
+                                <div className="flex flex-wrap gap-3">
+                                    <Button
+                                        onClick={resetToDefault}
+                                        variant="outline"
+                                        className="gap-2"
+                                    >
+                                        <RotateCcw className="h-4 w-4" />
+                                        一键重置
+                                    </Button>
+
+                                    <Button
+                                        onClick={handleExport}
+                                        className="gap-2 bg-green-600 hover:bg-green-700"
+                                    >
+                                        <Download className="h-4 w-4" />
+                                        导出PNG
+                                    </Button>
+
+                                    <Button
+                                        onClick={() => setShowExpression(!showExpression)}
+                                        variant="outline"
+                                        className="gap-2"
+                                    >
+                                        <Code className="h-4 w-4" />
+                                        显示表达式
+                                    </Button>
+                                </div>
+
+                                {showExpression && (
+                                    <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="text-sm font-medium text-gray-700">当前姿势表达式</span>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => navigator.clipboard.writeText(generateExpression())}
+                                            >
+                                                复制
+                                            </Button>
+                                        </div>
+                                        <pre className="text-sm bg-gray-900 text-gray-100 p-3 rounded overflow-x-auto">
+                                            {generateExpression()}
+                                        </pre>
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+
                     {characterData && (
                         <>
                             <PoseSelector
@@ -172,6 +225,38 @@ const CharacterEditor: React.FC = () => {
                                 onClearGroup={clearGroupOverrides}
                                 loading={loading}
                             />
+
+                            {/* 状态信息 */}
+                            <Card>
+                                <CardContent className="pt-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="text-center">
+                                            <div className="text-xl font-bold text-primary">
+                                                {characterData?.layers.length || 0}
+                                            </div>
+                                            <div className="text-[10px] text-gray-600">总图层数</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="text-xl font-bold text-green-600">
+                                                {Object.values(currentStates).filter(Boolean).length}
+                                            </div>
+                                            <div className="text-[10px] text-gray-600">激活图层</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="text-xl font-bold text-blue-600">
+                                                {activeCompositions.size}
+                                            </div>
+                                            <div className="text-[10px] text-gray-600">激活姿势</div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="text-xl font-bold text-purple-600">
+                                                {Object.keys(characterData?.compositions || {}).length}
+                                            </div>
+                                            <div className="text-[10px] text-gray-600">可用姿势</div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </>
                     )}
                 </div>
@@ -195,87 +280,6 @@ const CharacterEditor: React.FC = () => {
                                         </div>
                                     </div>
                                 )}
-                            </CardContent>
-                        </Card>
-
-                        {/* 操作面板 */}
-                        <Card>
-                            <CardContent className="pt-6">
-                                <div className="space-y-4">
-                                    <div className="flex flex-wrap gap-3">
-                                        <Button
-                                            onClick={resetToDefault}
-                                            variant="outline"
-                                            className="gap-2"
-                                        >
-                                            <RotateCcw className="h-4 w-4" />
-                                            一键重置
-                                        </Button>
-
-                                        <Button
-                                            onClick={handleExport}
-                                            className="gap-2 bg-green-600 hover:bg-green-700"
-                                        >
-                                            <Download className="h-4 w-4" />
-                                            导出PNG
-                                        </Button>
-
-                                        <Button
-                                            onClick={() => setShowExpression(!showExpression)}
-                                            variant="outline"
-                                            className="gap-2"
-                                        >
-                                            <Code className="h-4 w-4" />
-                                            显示表达式
-                                        </Button>
-                                    </div>
-
-                                    {showExpression && (
-                                        <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-sm font-medium text-gray-700">当前姿势表达式</span>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => navigator.clipboard.writeText(generateExpression())}
-                                                >
-                                                    复制
-                                                </Button>
-                                            </div>
-                                            <pre className="text-sm bg-gray-900 text-gray-100 p-3 rounded overflow-x-auto">
-                                                {generateExpression()}
-                                            </pre>
-                                        </div>
-                                    )}
-
-                                    {/* 状态信息 */}
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
-                                        <div className="text-center">
-                                            <div className="text-2xl font-bold text-primary">
-                                                {characterData?.layers.length || 0}
-                                            </div>
-                                            <div className="text-xs text-gray-600">总图层数</div>
-                                        </div>
-                                        <div className="text-center">
-                                            <div className="text-2xl font-bold text-green-600">
-                                                {Object.values(currentStates).filter(Boolean).length}
-                                            </div>
-                                            <div className="text-xs text-gray-600">激活图层</div>
-                                        </div>
-                                        <div className="text-center">
-                                            <div className="text-2xl font-bold text-blue-600">
-                                                {activeCompositions.size}
-                                            </div>
-                                            <div className="text-xs text-gray-600">激活姿势</div>
-                                        </div>
-                                        <div className="text-center">
-                                            <div className="text-2xl font-bold text-purple-600">
-                                                {Object.keys(characterData?.compositions || {}).length}
-                                            </div>
-                                            <div className="text-xs text-gray-600">可用姿势</div>
-                                        </div>
-                                    </div>
-                                </div>
                             </CardContent>
                         </Card>
                     </div>
