@@ -58,7 +58,7 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({ layers, layerStates }) => {
     })
   }, [layers, layerStates])
 
-  // 计算画布尺寸
+  // 计算画布尺寸 - 参考character_editor.html的样式
   useEffect(() => {
     if (loadedImages.length === 0) return
 
@@ -71,9 +71,20 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({ layers, layerStates }) => {
     })
 
     if (maxWidth > 0 && maxHeight > 0) {
+      // 参考character_editor.html：max-width: 500px, aspect-ratio: 1/2
+      const targetMaxWidth = 600 // 比原版稍大
+      const targetMaxHeight = 1200 // 1:2宽高比
+
+      // 保持宽高比，但优先保证高度
+      const widthRatio = targetMaxWidth / maxWidth
+      const heightRatio = targetMaxHeight / maxHeight
+
+      // 选择较小的比例以确保图片完全显示
+      const ratio = Math.min(widthRatio, heightRatio, 1)
+
       setCanvasSize({ 
-        width: Math.min(maxWidth, 800), // 限制最大宽度
-        height: Math.min(maxHeight, 1200) // 限制最大高度
+        width: Math.floor(maxWidth * ratio),
+        height: Math.floor(maxHeight * ratio)
       })
     }
   }, [loadedImages])
@@ -87,13 +98,15 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({ layers, layerStates }) => {
       background: 'linear-gradient(45deg, #e5e7eb 25%, transparent 25%), linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e5e7eb 75%), linear-gradient(-45deg, transparent 75%, #e5e7eb 75%)',
       backgroundSize: '20px 20px',
       backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px',
-      borderRadius: '8px',
+      borderRadius: '12px',
       overflow: 'hidden',
       border: '1px solid #d1d5db',
-      minHeight: '500px',
+      minHeight: '600px', // 更高
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'center'
+      justifyContent: 'center',
+      transition: 'all 0.3s ease',
+      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
     }}>
       {sortedImages.length === 0 ? (
         <div style={{
@@ -123,7 +136,9 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({ layers, layerStates }) => {
             width: `${canvasSize.width}px`,
             height: `${canvasSize.height}px`,
             margin: '0 auto',
-            overflow: 'hidden'
+              overflow: 'hidden',
+              maxWidth: '100%',
+              maxHeight: '100%'
           }}>
             {sortedImages.map(({ layer, image }) => (
               <img
@@ -143,34 +158,25 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({ layers, layerStates }) => {
             ))}
           </div>
           
-          {/* 画布信息 */}
+            {/* 画布信息和图层计数合并显示 */}
           <div style={{
             position: 'absolute',
-            bottom: '12px',
-            left: '12px',
+              bottom: '8px',
+              left: '50%',
+              transform: 'translateX(-50%)',
             background: 'rgba(0, 0, 0, 0.7)',
             color: 'white',
-            fontSize: '12px',
-            padding: '4px 12px',
-            borderRadius: '12px',
-            backdropFilter: 'blur(4px)'
+              fontSize: '11px',
+              padding: '3px 10px',
+              borderRadius: '10px',
+              backdropFilter: 'blur(4px)',
+              display: 'flex',
+              gap: '8px',
+              alignItems: 'center'
           }}>
-            {canvasSize.width} × {canvasSize.height}px
-          </div>
-          
-          {/* 图层计数 */}
-          <div style={{
-            position: 'absolute',
-            bottom: '12px',
-            right: '12px',
-            background: 'rgba(0, 0, 0, 0.7)',
-            color: 'white',
-            fontSize: '12px',
-            padding: '4px 12px',
-            borderRadius: '12px',
-            backdropFilter: 'blur(4px)'
-          }}>
-            {sortedImages.length} 个图层
+              <span>{canvasSize.width} × {canvasSize.height}px</span>
+              <span style={{ opacity: 0.7 }}>|</span>
+              <span>{sortedImages.length} layers</span>
           </div>
         </div>
       )}

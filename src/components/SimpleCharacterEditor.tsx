@@ -24,10 +24,75 @@ const SimpleCharacterEditor: React.FC = () => {
 
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
+    const exportImage = async (format: 'png' | 'webp') => {
+        if (!characterData) return
+
+        const activeLayers = characterData.layers.filter(layer => currentStates[layer.id])
+
+        if (activeLayers.length === 0) {
+            alert("没有可导出的内容。")
+            return
+        }
+
+        try {
+            const canvas = document.createElement('canvas')
+            const ctx = canvas.getContext('2d')
+
+            if (!ctx) {
+                throw new Error("无法获取Canvas上下文")
+            }
+
+            // 加载所有图片
+            const loadedImages = await Promise.all(
+                activeLayers.map(layer =>
+                    new Promise<HTMLImageElement>((resolve, reject) => {
+                        const img = new Image()
+                        img.crossOrigin = 'anonymous'
+                        img.onload = () => resolve(img)
+                        img.onerror = reject
+                        img.src = layer.path
+                    })
+                )
+            )
+
+            // 计算最大尺寸
+            let maxWidth = 0
+            let maxHeight = 0
+            loadedImages.forEach(img => {
+                maxWidth = Math.max(maxWidth, img.naturalWidth)
+                maxHeight = Math.max(maxHeight, img.naturalHeight)
+            })
+
+            canvas.width = maxWidth
+            canvas.height = maxHeight
+
+            // 按渲染顺序绘制
+            activeLayers
+                .sort((a, b) => a.order - b.order)
+                .forEach((layer, index) => {
+                    const img = loadedImages[index]
+                    ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight)
+                })
+
+            // 导出为指定格式
+            const mimeType = format === 'webp' ? 'image/webp' : 'image/png'
+            const quality = format === 'webp' ? 0.8 : 1.0 // WebP使用压缩
+
+            const link = document.createElement('a')
+            link.download = `${currentCharacter}_export_${Date.now()}.${format}`
+            link.href = canvas.toDataURL(mimeType, quality)
+            link.click()
+
+        } catch (error) {
+            console.error("导出失败:", error)
+            alert("导出图片失败。请检查控制台获取更多信息。")
+        }
+    }
+
     const containerStyle: React.CSSProperties = {
         minHeight: '100vh',
         background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-        padding: '20px',
+        padding: '20px 30px', // 平衡左右内边距
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }
 
@@ -51,27 +116,27 @@ const SimpleCharacterEditor: React.FC = () => {
 
     const gridStyle: React.CSSProperties = {
         display: 'grid',
-        gridTemplateColumns: '1fr 2fr',
-        gap: '30px',
+        gridTemplateColumns: '1.5fr 1.5fr', // 让左右更平衡，右侧有更多空间
+        gap: '40px',
         alignItems: 'start'
     }
 
     const leftPanelStyle: React.CSSProperties = {
         display: 'flex',
         flexDirection: 'column',
-        gap: '20px'
-    }
+         gap: '28px'
+     }
 
     const rightPanelStyle: React.CSSProperties = {
         display: 'flex',
         flexDirection: 'column',
-        gap: '20px'
+        gap: '24px'
     }
 
     const cardStyle: React.CSSProperties = {
         background: 'white',
         borderRadius: '12px',
-        padding: '20px',
+        padding: '24px',
         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
         border: '1px solid #e5e7eb'
     }
@@ -88,26 +153,32 @@ const SimpleCharacterEditor: React.FC = () => {
 
     const selectStyle: React.CSSProperties = {
         width: '100%',
-        padding: '10px 12px',
+        padding: '12px 16px',
         borderRadius: '8px',
         border: '1px solid #d1d5db',
-        fontSize: '14px',
+        fontSize: '15px',
         backgroundColor: 'white',
-        marginBottom: '12px'
+        marginBottom: '16px',
+        cursor: 'pointer'
     }
 
     const buttonStyle = (variant: 'primary' | 'secondary' | 'outline' = 'primary'): React.CSSProperties => {
         const base: React.CSSProperties = {
-            padding: '8px 16px',
+            padding: '10px 12px',
             borderRadius: '8px',
-            fontSize: '14px',
+            fontSize: '13px',
             fontWeight: '500',
             cursor: 'pointer',
             border: 'none',
             transition: 'all 0.2s',
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '6px'
+            justifyContent: 'center',
+            gap: '4px',
+            minHeight: '40px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
         }
 
         switch (variant) {
@@ -269,7 +340,7 @@ const SimpleCharacterEditor: React.FC = () => {
                             </h3>
                             <div style={{
                                 display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                                gridTemplateColumns: 'repeat(5, 1fr)',
                                 gap: '8px'
                             }}>
                                 {Object.keys(characterData.compositions)
@@ -292,24 +363,6 @@ const SimpleCharacterEditor: React.FC = () => {
                         </div>
                     )}
 
-                    {/* 操作按钮 */}
-                    <div style={cardStyle}>
-                        <h3 style={cardTitleStyle}>
-                            <span>⚙️</span>
-                            操作
-                        </h3>
-                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                            <Button onClick={resetToDefault} variant="outline">
-                                🔄 一键重置
-                            </Button>
-                            <Button onClick={() => {
-                                // 导出功能占位
-                                alert('导出功能将在完整版本中实现')
-                            }} variant="secondary">
-                                💾 导出PNG
-                            </Button>
-                        </div>
-                    </div>
                 </div>
 
                 {/* 右侧画布区域 */}
@@ -345,6 +398,51 @@ const SimpleCharacterEditor: React.FC = () => {
                                 <p>加载角色数据中...</p>
                             </div>
                         )}
+                    </div>
+
+                    {/* 操作按钮 - 放在画布下面 */}
+                    <div style={cardStyle}>
+                        <h3 style={cardTitleStyle}>
+                            <span>⚙️</span>
+                            操作
+                        </h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                <Button onClick={resetToDefault} variant="outline" style={{ flex: 1 }}>
+                                    🔄 一键重置
+                                </Button>
+                            </div>
+
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '12px',
+                                borderTop: '1px solid #e5e7eb',
+                                paddingTop: '16px'
+                            }}>
+                                <div style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>导出格式</div>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <Button
+                                        onClick={() => exportImage('png')}
+                                        variant="secondary"
+                                        style={{ flex: 1 }}
+                                    >
+                                        💾 PNG
+                                    </Button>
+                                    <Button
+                                        onClick={() => exportImage('webp')}
+                                        variant="secondary"
+                                        style={{ flex: 1 }}
+                                    >
+                                        🖼️ WebP
+                                    </Button>
+                                </div>
+                                <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: '1.4' }}>
+                                    <div>• PNG: 无损质量，兼容性好</div>
+                                    <div>• WebP: 体积更小，适合网页使用</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
