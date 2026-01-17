@@ -2,7 +2,7 @@ import React from 'react'
 import { Card, CardContent } from './ui/card'
 import { Button } from './ui/button'
 // 使用更通用的图标或移除图标依赖
-import { Smile, Frown, Meh, Laugh, Angry, Heart, Eye } from 'lucide-react'
+import { Smile, Frown, Meh, Angry, Heart, Eye } from 'lucide-react'
 
 interface PoseSelectorProps {
     compositions: Record<string, string[]>

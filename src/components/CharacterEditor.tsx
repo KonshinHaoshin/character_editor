@@ -4,7 +4,7 @@ import { useCharacterState } from '../hooks/useCharacterState'
 import CharacterSelector from './CharacterSelector'
 import PoseSelector from './PoseSelector'
 import LayerControls from './LayerControls'
-import CharacterCanvas from './CharacterCanvas'
+import SimpleCanvas from './SimpleCanvas'
 import { Card, CardContent } from './ui/card'
 import { Button } from './ui/button'
 import { Download, RotateCcw, Code, Palette } from 'lucide-react'
@@ -25,9 +25,7 @@ const CharacterEditor: React.FC = () => {
         toggleComposition,
         toggleLayer,
         clearGroupOverrides,
-        resetToDefault,
-        setActiveCompositions,
-        setManualOverrides
+        resetToDefault
     } = useCharacterState(characterData)
 
     const [showExpression, setShowExpression] = useState(false)
@@ -77,7 +75,7 @@ const CharacterEditor: React.FC = () => {
             // 按渲染顺序绘制
             activeLayers
                 .sort((a, b) => a.order - b.order)
-                .forEach((layer, index) => {
+                .forEach((_, index) => {
                     const img = loadedImages[index]
                     ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight)
                 })
@@ -268,7 +266,7 @@ const CharacterEditor: React.FC = () => {
                         <Card className="overflow-hidden">
                             <CardContent className="p-0">
                                 {characterData ? (
-                                    <CharacterCanvas
+                                    <SimpleCanvas
                                         layers={characterData.layers}
                                         layerStates={currentStates}
                                     />

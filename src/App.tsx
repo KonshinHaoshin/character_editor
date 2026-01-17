@@ -1,4 +1,3 @@
-import React from 'react'
 import SimpleCharacterEditor from './components/SimpleCharacterEditor'
 
 function App() {

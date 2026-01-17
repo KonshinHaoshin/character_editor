@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import JSZip from 'jszip'
 import { useCharacterData } from '../hooks/useCharacterData'
 import { useCharacterState } from '../hooks/useCharacterState'
 import { applyLayerStrings } from '../utils/parser'
@@ -167,6 +168,96 @@ const SimpleCharacterEditor: React.FC = () => {
         } catch (error) {
             console.error("导出失败:", error)
             alert("导出图片失败。请检查控制台获取更多信息。")
+        }
+    }
+
+    const packageModel = async (format: 'png' | 'webp' = 'png') => {
+        if (!characterData) return
+
+        try {
+            const zip = new JSZip()
+            const modelFolder = zip.folder(currentCharacter)
+            if (!modelFolder) return
+
+            const extension = format === 'webp' ? 'webp' : 'png'
+
+            // 1. 生成 model.char.json
+            const charJson = {
+                version: "1.0.0",
+                metadata: {
+                    name: currentCharacter,
+                    exportedAt: new Date().toISOString()
+                },
+                settings: {
+                    basePath: "./",
+                },
+                assets: {
+                    layers: characterData.layers.map(layer => ({
+                        id: layer.id,
+                        group: layer.group,
+                        name: layer.name,
+                        order: layer.order,
+                        path: `${layer.group}/${layer.name}.${extension}`
+                    }))
+                },
+                controller: {
+                    baseLayers: characterData.defaultComposition.layers || [],
+                    defaultPoses: characterData.defaultComposition.presets || [],
+                    poses: characterData.compositions
+                }
+            }
+
+            modelFolder.file("model.char.json", JSON.stringify(charJson, null, 2))
+
+            // 2. 打包所有图片
+            const layers = characterData.layers
+            await Promise.all(layers.map(async (layer) => {
+                let blob: Blob
+                if (format === 'webp') {
+                    // 转换为 WebP
+                    blob = await new Promise<Blob>((resolve, reject) => {
+                        const img = new Image()
+                        img.crossOrigin = 'anonymous'
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas')
+                            canvas.width = img.naturalWidth
+                            canvas.height = img.naturalHeight
+                            const ctx = canvas.getContext('2d')
+                            if (!ctx) {
+                                reject(new Error('Canvas context failed'))
+                                return
+                            }
+                            ctx.drawImage(img, 0, 0)
+                            canvas.toBlob((b) => {
+                                if (b) resolve(b)
+                                else reject(new Error('WebP conversion failed'))
+                            }, 'image/webp', 0.8)
+                        }
+                        img.onerror = reject
+                        img.src = layer.path
+                    })
+                } else {
+                    // 直接获取原始图片 (PNG)
+                    const response = await fetch(layer.path)
+                    blob = await response.blob()
+                }
+                
+                // 保持目录结构
+                modelFolder.file(`${layer.group}/${layer.name}.${extension}`, blob)
+            }))
+
+            // 3. 生成压缩包并下载
+            const content = await zip.generateAsync({ type: "blob" })
+            const link = document.createElement('a')
+            link.href = URL.createObjectURL(content)
+            link.download = `${currentCharacter}_model_${format}.zip`
+            link.click()
+            
+            alert(`角色模型 (${format.toUpperCase()}) 打包成功！`)
+
+        } catch (error) {
+            console.error("打包失败:", error)
+            alert("打包模型失败，请检查控制台。")
         }
     }
 
@@ -394,14 +485,24 @@ const SimpleCharacterEditor: React.FC = () => {
                                 </select>
                             </div>
                             <div>
-                                <label style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px', display: 'block' }}>快速导出</label>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <Button onClick={() => exportImage('png')} variant="secondary" style={{ flex: 1, minHeight: '38px', fontSize: '12px' }}>
-                                        PNG
-                                    </Button>
-                                    <Button onClick={() => exportImage('webp')} variant="secondary" style={{ flex: 1, minHeight: '38px', fontSize: '12px' }}>
-                                        WebP
-                                    </Button>
+                                <label style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px', display: 'block' }}>快速导出 / 打包下载</label>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <Button onClick={() => exportImage('png')} variant="secondary" style={{ flex: 1, minHeight: '38px', fontSize: '12px' }}>
+                                            导出 PNG
+                                        </Button>
+                                        <Button onClick={() => exportImage('webp')} variant="secondary" style={{ flex: 1, minHeight: '38px', fontSize: '12px' }}>
+                                            导出 WebP
+                                        </Button>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <Button onClick={() => packageModel('png')} variant="primary" style={{ flex: 1, minHeight: '38px', fontSize: '12px' }}>
+                                            📦 打包 (PNG)
+                                        </Button>
+                                        <Button onClick={() => packageModel('webp')} variant="primary" style={{ flex: 1, minHeight: '38px', fontSize: '12px' }}>
+                                            📦 打包 (WebP)
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
