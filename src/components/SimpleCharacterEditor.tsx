@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import JSZip from 'jszip'
+import Swal from 'sweetalert2'
 import { useCharacterData } from '../hooks/useCharacterData'
 import { useCharacterState } from '../hooks/useCharacterState'
 import { applyLayerStrings } from '../utils/parser'
@@ -21,7 +22,8 @@ const SimpleCharacterEditor: React.FC = () => {
         toggleComposition,
         toggleLayer,
         clearGroupOverrides,
-        resetToDefault
+        resetToDefault,
+        applyExpression
     } = useCharacterState(characterData)
 
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
@@ -112,7 +114,12 @@ const SimpleCharacterEditor: React.FC = () => {
         const activeLayers = characterData.layers.filter(layer => currentStates[layer.id])
 
         if (activeLayers.length === 0) {
-            alert("没有可导出的内容。")
+            Swal.fire({
+                icon: 'warning',
+                title: '无法导出',
+                text: '没有可导出的内容。',
+                confirmButtonColor: '#3b82f6'
+            })
             return
         }
 
@@ -167,7 +174,12 @@ const SimpleCharacterEditor: React.FC = () => {
 
         } catch (error) {
             console.error("导出失败:", error)
-            alert("导出图片失败。请检查控制台获取更多信息。")
+            Swal.fire({
+                icon: 'error',
+                title: '导出失败',
+                text: '导出图片失败。请检查控制台获取更多信息。',
+                confirmButtonColor: '#3b82f6'
+            })
         }
     }
 
@@ -253,11 +265,21 @@ const SimpleCharacterEditor: React.FC = () => {
             link.download = `${currentCharacter}_model_${format}.zip`
             link.click()
             
-            alert(`角色模型 (${format.toUpperCase()}) 打包成功！`)
+            Swal.fire({
+                icon: 'success',
+                title: '打包成功',
+                text: `角色模型 (${format.toUpperCase()}) 打包成功！`,
+                confirmButtonColor: '#10b981'
+            })
 
         } catch (error) {
             console.error("打包失败:", error)
-            alert("打包模型失败，请检查控制台。")
+            Swal.fire({
+                icon: 'error',
+                title: '打包失败',
+                text: '打包模型失败，请检查控制台。',
+                confirmButtonColor: '#3b82f6'
+            })
         }
     }
 
@@ -509,16 +531,61 @@ const SimpleCharacterEditor: React.FC = () => {
 
                         <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '16px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                <label style={{ fontSize: '12px', color: '#6b7280' }}>当前姿势配置代码</label>
-                                <span 
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(generateExpression())
-                                        alert('已复制到剪贴板')
-                                    }}
-                                    style={{ fontSize: '12px', color: '#3b82f6', cursor: 'pointer', fontWeight: '500' }}
-                                >
-                                    📋 点击复制
-                                </span>
+                                <label style={{ fontSize: '12px', color: '#6b7280' }}>姿势配置代码 (可粘贴并应用)</label>
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                    <span 
+                                        onClick={() => {
+                                            const exp = generateExpression()
+                                            navigator.clipboard.writeText(exp)
+                                            Swal.fire({
+                                                icon: 'success',
+                                                title: '已复制',
+                                                text: '姿势配置代码已复制到剪贴板',
+                                                timer: 1500,
+                                                showConfirmButton: false,
+                                                position: 'top-end',
+                                                toast: true
+                                            })
+                                        }}
+                                        style={{ fontSize: '12px', color: '#3b82f6', cursor: 'pointer', fontWeight: '500' }}
+                                    >
+                                        📋 复制
+                                    </span>
+                                    <span 
+                                        onClick={async () => {
+                                            const { value: input } = await Swal.fire({
+                                                title: '粘贴姿势配置代码',
+                                                input: 'textarea',
+                                                inputLabel: '请输入或粘贴配置代码',
+                                                inputValue: generateExpression(),
+                                                showCancelButton: true,
+                                                confirmButtonText: '应用',
+                                                cancelButtonText: '取消',
+                                                inputValidator: (value) => {
+                                                    if (!value) {
+                                                        return '请输入配置代码'
+                                                    }
+                                                },
+                                                confirmButtonColor: '#10b981'
+                                            })
+                                            
+                                            if (input) {
+                                                applyExpression(input)
+                                                Swal.fire({
+                                                    icon: 'success',
+                                                    title: '应用成功',
+                                                    timer: 1000,
+                                                    showConfirmButton: false,
+                                                    toast: true,
+                                                    position: 'top-end'
+                                                })
+                                            }
+                                        }}
+                                        style={{ fontSize: '12px', color: '#10b981', cursor: 'pointer', fontWeight: '500' }}
+                                    >
+                                        📥 粘贴并应用
+                                    </span>
+                                </div>
                             </div>
                             <div style={{
                                 backgroundColor: '#f9fafb',

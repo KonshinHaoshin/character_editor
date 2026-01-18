@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import Swal from 'sweetalert2'
 import { useCharacterData } from '../hooks/useCharacterData'
 import { useCharacterState } from '../hooks/useCharacterState'
 import CharacterSelector from './CharacterSelector'
