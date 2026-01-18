@@ -27,6 +27,23 @@ const SimpleCharacterEditor: React.FC = () => {
     } = useCharacterState(characterData)
 
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+    const [pendingExpression, setPendingExpression] = useState<{char: string, exp: string} | null>(null)
+
+    // 处理跨角色的姿势应用
+    React.useEffect(() => {
+        if (pendingExpression && !loading && characterData && characterData.name === pendingExpression.char) {
+            applyExpression(pendingExpression.exp)
+            setPendingExpression(null)
+            Swal.fire({
+                icon: 'success',
+                title: '角色已切换并应用姿势',
+                timer: 1500,
+                showConfirmButton: false,
+                toast: true,
+                position: 'top-end'
+            })
+        }
+    }, [pendingExpression, loading, characterData, applyExpression])
 
     const toggleGroup = (groupName: string) => {
         setExpandedGroups(prev => {
@@ -553,10 +570,11 @@ const SimpleCharacterEditor: React.FC = () => {
                                     </span>
                                     <span 
                                         onClick={async () => {
-                                            const { value: input } = await Swal.fire({
+                                            const { value: rawInput } = await Swal.fire({
                                                 title: '粘贴姿势配置代码',
                                                 input: 'textarea',
-                                                inputLabel: '请输入或粘贴配置代码',
+                                                inputLabel: '支持纯姿势代码 或 WebGAL 指令',
+                                                inputPlaceholder: '例如: Cry,ArmR16 或 changeFigure:Sherry/... -pose={...}',
                                                 inputValue: generateExpression(),
                                                 showCancelButton: true,
                                                 confirmButtonText: '应用',
@@ -569,8 +587,47 @@ const SimpleCharacterEditor: React.FC = () => {
                                                 confirmButtonColor: '#10b981'
                                             })
                                             
-                                            if (input) {
-                                                applyExpression(input)
+                                            if (rawInput) {
+                                                let finalExpression = rawInput.trim()
+                                                let targetChar = ''
+
+                                                // 1. 尝试解析 WebGAL 指令格式
+                                                // 匹配 -pose={...}
+                                                const poseMatch = rawInput.match(/-pose=\{([^}]+)\}/)
+                                                if (poseMatch) {
+                                                    finalExpression = poseMatch[1]
+                                                    
+                                                    // 尝试匹配角色名 (从 changeFigure:XXX 或 -id=XXX)
+                                                    const charMatch = rawInput.match(/changeFigure:([^/?\s]+)/) || rawInput.match(/-id=([^;\s]+)/)
+                                                    if (charMatch) {
+                                                        targetChar = charMatch[1]
+                                                    }
+                                                }
+
+                                                // 2. 如果指定了角色且与当前不符，先切换角色
+                                                if (targetChar && targetChar !== currentCharacter) {
+                                                    const result = await Swal.fire({
+                                                        title: '切换角色并应用？',
+                                                        text: `检测到指令属于角色 "${targetChar}"，当前为 "${currentCharacter}"。是否切换？`,
+                                                        icon: 'question',
+                                                        showCancelButton: true,
+                                                        confirmButtonText: '切换并应用',
+                                                        cancelButtonText: '仅应用到当前'
+                                                    })
+
+                                                    if (result.isConfirmed) {
+                                                        if (characters.includes(targetChar)) {
+                                                            setPendingExpression({ char: targetChar, exp: finalExpression })
+                                                            setCurrentCharacter(targetChar)
+                                                            return
+                                                        } else {
+                                                            Swal.fire('错误', `找不到角色: ${targetChar}`, 'error')
+                                                            return
+                                                        }
+                                                    }
+                                                }
+
+                                                applyExpression(finalExpression)
                                                 Swal.fire({
                                                     icon: 'success',
                                                     title: '应用成功',

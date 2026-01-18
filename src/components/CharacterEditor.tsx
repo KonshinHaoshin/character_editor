@@ -1,5 +1,4 @@
 import React, { useState } from 'react'
-import Swal from 'sweetalert2'
 import { useCharacterData } from '../hooks/useCharacterData'
 import { useCharacterState } from '../hooks/useCharacterState'
 import CharacterSelector from './CharacterSelector'
@@ -155,55 +154,55 @@ const CharacterEditor: React.FC = () => {
                         loading={loading}
                     />
 
-                    {/* 操作面板 */}
-                    <Card>
-                        <CardContent className="pt-6">
-                            <div className="space-y-4">
-                                <div className="flex flex-wrap gap-3">
-                                    <Button
-                                        onClick={resetToDefault}
-                                        variant="outline"
-                                        className="gap-2"
-                                    >
-                                        <RotateCcw className="h-4 w-4" />
-                                        一键重置
-                                    </Button>
+                        {/* 操作面板 */}
+                        <Card>
+                            <CardContent className="pt-6">
+                                <div className="space-y-4">
+                                    <div className="flex flex-wrap gap-3">
+                                        <Button
+                                            onClick={resetToDefault}
+                                            variant="outline"
+                                            className="gap-2"
+                                        >
+                                            <RotateCcw className="h-4 w-4" />
+                                            一键重置
+                                        </Button>
 
-                                    <Button
-                                        onClick={handleExport}
-                                        className="gap-2 bg-green-600 hover:bg-green-700"
-                                    >
-                                        <Download className="h-4 w-4" />
-                                        导出PNG
-                                    </Button>
+                                        <Button
+                                            onClick={handleExport}
+                                            className="gap-2 bg-green-600 hover:bg-green-700"
+                                        >
+                                            <Download className="h-4 w-4" />
+                                            导出PNG
+                                        </Button>
 
-                                    <Button
-                                        onClick={() => setShowExpression(!showExpression)}
-                                        variant="outline"
-                                        className="gap-2"
-                                    >
-                                        <Code className="h-4 w-4" />
-                                        显示表达式
-                                    </Button>
-                                </div>
-
-                                {showExpression && (
-                                    <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="text-sm font-medium text-gray-700">当前姿势表达式</span>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => navigator.clipboard.writeText(generateExpression())}
-                                            >
-                                                复制
-                                            </Button>
-                                        </div>
-                                        <pre className="text-sm bg-gray-900 text-gray-100 p-3 rounded overflow-x-auto">
-                                            {generateExpression()}
-                                        </pre>
+                                        <Button
+                                            onClick={() => setShowExpression(!showExpression)}
+                                            variant="outline"
+                                            className="gap-2"
+                                        >
+                                            <Code className="h-4 w-4" />
+                                            显示表达式
+                                        </Button>
                                     </div>
-                                )}
+
+                                    {showExpression && (
+                                        <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-sm font-medium text-gray-700">当前姿势表达式</span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => navigator.clipboard.writeText(generateExpression())}
+                                                >
+                                                    复制
+                                                </Button>
+                                            </div>
+                                            <pre className="text-sm bg-gray-900 text-gray-100 p-3 rounded overflow-x-auto">
+                                                {generateExpression()}
+                                            </pre>
+                                        </div>
+                                    )}
                             </div>
                         </CardContent>
                     </Card>
@@ -225,7 +224,7 @@ const CharacterEditor: React.FC = () => {
                                 loading={loading}
                             />
 
-                            {/* 状态信息 */}
+                                    {/* 状态信息 */}
                             <Card>
                                 <CardContent className="pt-4">
                                     <div className="grid grid-cols-2 gap-4">
@@ -252,8 +251,8 @@ const CharacterEditor: React.FC = () => {
                                                 {Object.keys(characterData?.compositions || {}).length}
                                             </div>
                                             <div className="text-[10px] text-gray-600">可用姿势</div>
-                                        </div>
                                     </div>
+                                </div>
                                 </CardContent>
                             </Card>
                         </>

@@ -1,10 +1,18 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { CharacterData, LayerState } from '../types'
 import { applyLayerStrings, parseLayerString } from '../utils/parser'
 
 export function useCharacterState(characterData: CharacterData | null) {
   const [activeCompositions, setActiveCompositions] = useState<Set<string>>(new Set())
   const [manualOverrides, setManualOverrides] = useState<LayerState>({})
+
+  // 当角色数据变化时，重置状态为默认值
+  useEffect(() => {
+    if (characterData) {
+      setActiveCompositions(new Set(characterData.defaultComposition.presets))
+      setManualOverrides({})
+    }
+  }, [characterData])
 
   const calculateLayerStates = useCallback((): LayerState => {
     if (!characterData) return {}
