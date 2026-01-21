@@ -312,8 +312,9 @@ const SimpleCharacterEditor: React.FC = () => {
     const containerStyle: React.CSSProperties = {
         minHeight: '100vh',
         background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-        padding: '20px 30px', // 平衡左右内边距
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        maxWidth: '100%',
+        overflowX: 'hidden'
     }
 
     const headerStyle: React.CSSProperties = {
@@ -331,7 +332,6 @@ const SimpleCharacterEditor: React.FC = () => {
 
     const gridStyle: React.CSSProperties = {
         display: 'grid',
-        gridTemplateColumns: '1.5fr 1.5fr', // 让左右更平衡，右侧有更多空间
         gap: '40px',
         alignItems: 'start'
     }
@@ -345,15 +345,12 @@ const SimpleCharacterEditor: React.FC = () => {
     const rightPanelStyle: React.CSSProperties = {
         display: 'flex',
         flexDirection: 'column',
-        gap: '24px',
-        position: 'sticky',
-        top: '20px'
+        gap: '24px'
     }
 
     const cardStyle: React.CSSProperties = {
         background: 'white',
         borderRadius: '12px',
-        padding: '24px',
         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
         border: '1px solid #e5e7eb'
     }
@@ -455,7 +452,8 @@ const SimpleCharacterEditor: React.FC = () => {
         variant?: 'primary' | 'secondary' | 'outline'
         active?: boolean
         style?: React.CSSProperties
-    }> = ({ children, onClick, variant = 'primary', active = false, style }) => {
+        className?: string
+    }> = ({ children, onClick, variant = 'primary', active = false, style, className }) => {
         const [hover, setHover] = useState(false)
 
         return (
@@ -469,6 +467,7 @@ const SimpleCharacterEditor: React.FC = () => {
                     ...(active ? activeButtonStyle(variant) : {}),
                     ...style
                 }}
+                className={`mobile-button ${className || ''}`}
             >
                 {children}
             </button>
@@ -496,17 +495,17 @@ const SimpleCharacterEditor: React.FC = () => {
     }
 
     return (
-        <div style={containerStyle}>
+        <div style={containerStyle} className="editor-container">
             {/* 头部 */}
             <header style={headerStyle}>
                 <h1 style={titleStyle}>游戏立绘编辑器</h1>
             </header>
 
-            <div style={gridStyle}>
+            <div style={gridStyle} className="editor-grid">
                 {/* 左侧控制面板 */}
                 <div style={leftPanelStyle}>
                     {/* 控制中心 (合并了 配置、角色、操作) */}
-                    <div style={cardStyle}>
+                    <div style={cardStyle} className="editor-card">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                             <h3 style={{ ...cardTitleStyle, marginBottom: 0 }}>
                                 <span>⚙️</span> 控制中心
@@ -516,14 +515,23 @@ const SimpleCharacterEditor: React.FC = () => {
                             </Button>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                        <div style={{
+                            display: 'grid',
+                            gap: '12px',
+                            marginBottom: '16px'
+                        }} className="control-center-grid">
                             <div>
                                 <label style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px', display: 'block' }}>选择角色</label>
                                 <select
-                                    style={{ ...selectStyle, marginBottom: 0, padding: '8px 12px' }}
+                                    style={{
+                                        ...selectStyle,
+                                        marginBottom: 0
+                                    }}
+                                    className="mobile-select"
                                     value={currentCharacter}
                                     onChange={(e) => setCurrentCharacter(e.target.value)}
                                     disabled={loading}
+                                    aria-label="选择角色"
                                 >
                                     {characters.map((character) => (
                                         <option key={character} value={character}>
@@ -536,15 +544,15 @@ const SimpleCharacterEditor: React.FC = () => {
                                 <label style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px', display: 'block' }}>快速导出 / 打包下载</label>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     <div style={{ display: 'flex', gap: '8px' }}>
-                                        <Button onClick={() => exportImage('png')} variant="secondary" style={{ flex: 1, minHeight: '38px', fontSize: '12px' }}>
+                                        <Button onClick={() => exportImage('png')} variant="secondary" style={{ flex: 1 }} className="export-button">
                                             导出 PNG
                                         </Button>
-                                        <Button onClick={() => exportImage('webp')} variant="secondary" style={{ flex: 1, minHeight: '38px', fontSize: '12px' }}>
+                                        <Button onClick={() => exportImage('webp')} variant="secondary" style={{ flex: 1 }} className="export-button">
                                             导出 WebP
                                         </Button>
                                     </div>
                                     <div style={{ display: 'flex', gap: '8px' }}>
-                                        <Button onClick={packageModel} variant="primary" style={{ flex: 1, minHeight: '38px', fontSize: '12px' }}>
+                                        <Button onClick={packageModel} variant="primary" style={{ flex: 1 }} className="export-button">
                                             📦 打包模型 (WebP)
                                         </Button>
                                     </div>
@@ -670,7 +678,7 @@ const SimpleCharacterEditor: React.FC = () => {
 
                     {/* 姿势选择 */}
                     {characterData && (
-                        <div style={cardStyle}>
+                        <div style={cardStyle} className="editor-card">
                             <h3 style={cardTitleStyle}>
                                 <span>😊</span>
                                 姿势选择
@@ -687,9 +695,8 @@ const SimpleCharacterEditor: React.FC = () => {
                             </h3>
                             <div style={{
                                 display: 'grid',
-                                gridTemplateColumns: 'repeat(5, 1fr)',
                                 gap: '8px'
-                            }}>
+                            }} className="pose-grid">
                                 {Object.keys(characterData.compositions)
                                     .sort()
                                     .map((name) => {
@@ -701,6 +708,7 @@ const SimpleCharacterEditor: React.FC = () => {
                                                 variant={isActive ? 'primary' : 'outline'}
                                                 active={isActive}
                                                 style={{ justifyContent: 'center' }}
+                                                className="mobile-button"
                                             >
                                                 {name}
                                             </Button>
@@ -712,7 +720,7 @@ const SimpleCharacterEditor: React.FC = () => {
 
                     {/* 差分细节调整 - 新增 */}
                     {characterData && (
-                        <div style={cardStyle}>
+                        <div style={cardStyle} className="editor-card">
                             <h3 style={cardTitleStyle}>
                                 <span>🔍</span>
                                 差分细节调整
@@ -798,6 +806,7 @@ const SimpleCharacterEditor: React.FC = () => {
                                                                         fontSize: '12px', 
                                                                         minHeight: '30px' 
                                                                     }}
+                                                                    className="mobile-button"
                                                                 >
                                                                     {layer.name}
                                                                 </Button>
@@ -815,9 +824,9 @@ const SimpleCharacterEditor: React.FC = () => {
                 </div>
 
                 {/* 右侧画布区域 */}
-                <div style={rightPanelStyle}>
+                <div style={rightPanelStyle} className="right-panel">
                     {/* 画布区域 */}
-                    <div style={cardStyle}>
+                    <div style={cardStyle} className="editor-card">
                         <h3 style={cardTitleStyle}>
                             <span>🎨</span>
                             立绘预览

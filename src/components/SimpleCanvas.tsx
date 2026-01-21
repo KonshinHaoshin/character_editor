@@ -123,13 +123,12 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({ layers, layerStates }) => {
       borderRadius: '12px',
       overflow: 'hidden',
       border: '1px solid #d1d5db',
-      minHeight: '600px', // 更高
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       transition: 'all 0.3s ease',
       boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-    }}>
+    }} className="canvas-container">
       {sortedImages.length === 0 ? (
         <div style={{
           display: 'flex',
