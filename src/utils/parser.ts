@@ -47,11 +47,15 @@ export function parseInfo(text: string, characterName: string): LayerInfo[] {
   return text.trim().split('\n').map(line => {
     const [group, name, order] = line.split(':')
     if (!group || !name || !order) return null
+
+    // 使用原始PNG路径（WebP文件将在相同位置生成）
+    const pngPath = `./${characterName}/${group}/${name}.png`
+
     return {
       group: group.trim(),
       name: name.trim(),
       order: parseInt(order, 10),
-      path: `./${characterName}/${group}/${name}.png`,
+      path: pngPath, // 使用PNG路径，但实际加载WebP（如果存在）
       id: `${group.trim()}/${name.trim()}`
     }
   }).filter(Boolean).sort((a, b) => a!.order - b!.order) as LayerInfo[]

@@ -20,12 +20,21 @@
     "scripts": {
         "dev": "vite",
         "build": "tsc && vite build",
-        "preview": "vite preview"
+        "preview": "vite preview",
+        "optimize-images": "node scripts/convert-images.js",
+        "webp-optimize": "node scripts/webp-optimizer.js",
+        "webp-inplace": "node scripts/webp-inplace.js",
+        "verify-webp": "node scripts/verify-webp-conversion.js",
+        "build:webp": "npm run webp-optimize && npm run build",
+        "clean-webp": "rimraf public/webp-optimized",
+        "clean-optimized": "rimraf public/optimized"
     },
     "devDependencies": {
         "@tailwindcss/postcss": "^4.1.18",
         "@types/jszip": "^3.4.0",
         "@types/node": "^22.10.6",
-        "autoprefixer": "^10.4.23"
+        "autoprefixer": "^10.4.23",
+        "rimraf": "^6.1.2",
+        "sharp": "^0.34.5"
     }
 }

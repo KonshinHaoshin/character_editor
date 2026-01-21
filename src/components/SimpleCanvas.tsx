@@ -10,42 +10,64 @@ const SimpleCanvas: React.FC<SimpleCanvasProps> = ({ layers, layerStates }) => {
   const [loadedImages, setLoadedImages] = useState<Array<{ layer: LayerInfo; image: HTMLImageElement }>>([])
   const [canvasSize, setCanvasSize] = useState({ width: 500, height: 1000 })
 
-  // 预加载所有激活的图片
+  // 预加载所有激活的图片 - 优先加载WebP，如果不存在则尝试PNG
   useEffect(() => {
     const activeLayers = layers.filter(layer => layerStates[layer.id])
     
     const loadPromises = activeLayers.map(async (layer) => {
       try {
-        const img = new window.Image()
-        img.crossOrigin = 'anonymous'
+        // 优先尝试WebP文件（将.png替换为.webp）
+        const webpPath = layer.path.replace(/\.png$/i, '.webp')
         
         return new Promise<{ layer: LayerInfo; image: HTMLImageElement }>((resolve) => {
-          img.onload = () => resolve({ layer, image: img })
-          img.onerror = () => {
-            console.warn(`Failed to load image: ${layer.path}`)
-            // 创建一个占位图片
-            const placeholder = new Image()
-            placeholder.src = `data:image/svg+xml,${encodeURIComponent(`
-              <svg width="500" height="1000" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100%" height="100%" fill="#f3f4f6"/>
-                <text x="50%" y="50%" text-anchor="middle" fill="#9ca3af" font-family="Arial" font-size="20">
-                  ${layer.name}
-                </text>
-              </svg>
-            `)}`
-            placeholder.onload = () => resolve({ layer, image: placeholder })
+          const img = new window.Image()
+          img.crossOrigin = 'anonymous'
+          
+          // 先尝试WebP
+          img.src = webpPath
+          
+          img.onload = () => {
+            // console.log(`✅ WebP加载成功: ${webpPath}`)
+            resolve({ layer, image: img })
           }
-          img.src = layer.path
+          
+          img.onerror = () => {
+            console.warn(`WebP加载失败: ${webpPath}，尝试PNG`)
+            // WebP失败，尝试原始PNG路径
+            const pngImg = new window.Image()
+            pngImg.crossOrigin = 'anonymous'
+            pngImg.src = layer.path
+            
+            pngImg.onload = () => {
+              console.log(`✅ PNG加载成功: ${layer.path}`)
+              resolve({ layer, image: pngImg })
+            }
+            
+            pngImg.onerror = () => {
+              console.warn(`PNG也加载失败: ${layer.path}`)
+              // 创建一个占位图片
+              const placeholder = new Image()
+              placeholder.src = `data:image/svg+xml,${encodeURIComponent(`
+                <svg width="500" height="1000" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="100%" height="100%" fill="#f3f4f6"/>
+                  <text x="50%" y="50%" text-anchor="middle" fill="#9ca3af" font-family="Arial" font-size="20">
+                    ${layer.name}
+                  </text>
+                </svg>
+              `)}`
+              placeholder.onload = () => resolve({ layer, image: placeholder })
+            }
+          }
         })
       } catch (error) {
-        console.warn(`Error loading image: ${layer.path}`, error)
+        console.warn(`图片加载失败: ${layer.path}`, error)
         // 返回一个占位图片
         const placeholder = new Image()
         placeholder.src = `data:image/svg+xml,${encodeURIComponent(`
           <svg width="500" height="1000" xmlns="http://www.w3.org/2000/svg">
             <rect width="100%" height="100%" fill="#f3f4f6"/>
             <text x="50%" y="50%" text-anchor="middle" fill="#9ca3af" font-family="Arial" font-size="20">
-              Error
+              ${layer.name}
             </text>
           </svg>
         `)}`

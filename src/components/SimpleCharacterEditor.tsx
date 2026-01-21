@@ -148,15 +148,28 @@ const SimpleCharacterEditor: React.FC = () => {
                 throw new Error("无法获取Canvas上下文")
             }
 
-            // 加载所有图片
+            // 加载所有图片 - 优先加载WebP，如果不存在则尝试PNG
             const loadedImages = await Promise.all(
                 activeLayers.map(layer =>
                     new Promise<HTMLImageElement>((resolve, reject) => {
+                        // 优先尝试WebP文件
+                        const webpPath = layer.path.replace(/\.png$/i, '.webp')
                         const img = new Image()
                         img.crossOrigin = 'anonymous'
+
+                        // 先尝试WebP
+                        img.src = webpPath
+
                         img.onload = () => resolve(img)
-                        img.onerror = reject
-                        img.src = layer.path
+                        img.onerror = () => {
+                            // WebP失败，尝试PNG
+                            const pngImg = new Image()
+                            pngImg.crossOrigin = 'anonymous'
+                            pngImg.src = layer.path
+
+                            pngImg.onload = () => resolve(pngImg)
+                            pngImg.onerror = reject
+                        }
                     })
                 )
             )
@@ -200,7 +213,7 @@ const SimpleCharacterEditor: React.FC = () => {
         }
     }
 
-    const packageModel = async (format: 'png' | 'webp' = 'png') => {
+    const packageModel = async () => {
         if (!characterData) return
 
         try {
@@ -208,17 +221,18 @@ const SimpleCharacterEditor: React.FC = () => {
             const modelFolder = zip.folder(currentCharacter)
             if (!modelFolder) return
 
-            const extension = format === 'webp' ? 'webp' : 'png'
-
-            // 1. 生成 model.char.json
+            // 1. 生成 model.char.json - 专为WebP
             const charJson = {
                 version: "1.0.0",
                 metadata: {
                     name: currentCharacter,
-                    exportedAt: new Date().toISOString()
+                    exportedAt: new Date().toISOString(),
+                    format: "webp",
+                    quality: 100
                 },
                 settings: {
                     basePath: "./",
+                    imageFormat: "webp"
                 },
                 assets: {
                     layers: characterData.layers.map(layer => ({
@@ -226,7 +240,7 @@ const SimpleCharacterEditor: React.FC = () => {
                         group: layer.group,
                         name: layer.name,
                         order: layer.order,
-                        path: `${layer.group}/${layer.name}.${extension}`
+                        path: `${layer.group}/${layer.name}.webp`
                     }))
                 },
                 controller: {
@@ -238,54 +252,49 @@ const SimpleCharacterEditor: React.FC = () => {
 
             modelFolder.file("model.char.json", JSON.stringify(charJson, null, 2))
 
-            // 2. 打包所有图片
+            // 2. 打包所有WebP图片 - 直接使用已转换的WebP文件
             const layers = characterData.layers
             await Promise.all(layers.map(async (layer) => {
-                let blob: Blob
-                if (format === 'webp') {
-                    // 转换为 WebP
-                    blob = await new Promise<Blob>((resolve, reject) => {
-                        const img = new Image()
-                        img.crossOrigin = 'anonymous'
-                        img.onload = () => {
-                            const canvas = document.createElement('canvas')
-                            canvas.width = img.naturalWidth
-                            canvas.height = img.naturalHeight
-                            const ctx = canvas.getContext('2d')
-                            if (!ctx) {
-                                reject(new Error('Canvas context failed'))
-                                return
-                            }
-                            ctx.drawImage(img, 0, 0)
-                            canvas.toBlob((b) => {
-                                if (b) resolve(b)
-                                else reject(new Error('WebP conversion failed'))
-                            }, 'image/webp', 0.8)
-                        }
-                        img.onerror = reject
-                        img.src = layer.path
-                    })
-                } else {
-                    // 直接获取原始图片 (PNG)
-                    const response = await fetch(layer.path)
-                    blob = await response.blob()
+                try {
+                    // 优先尝试WebP文件
+                    const webpPath = layer.path.replace(/\.png$/i, '.webp')
+
+                    // 直接获取WebP文件
+                    const response = await fetch(webpPath)
+                    if (!response.ok) {
+                        throw new Error(`WebP文件不存在: ${webpPath}`)
+                    }
+
+                    const blob = await response.blob()
+
+                    // 保持目录结构
+                    modelFolder.file(`${layer.group}/${layer.name}.webp`, blob)
+
+                } catch (error) {
+                    console.warn(`无法获取WebP文件 ${layer.path}:`, error)
+                    // 如果WebP失败，尝试PNG（虽然应该不存在了）
+                    try {
+                        const response = await fetch(layer.path)
+                        const blob = await response.blob()
+                        modelFolder.file(`${layer.group}/${layer.name}.png`, blob)
+                    } catch (pngError) {
+                        console.error(`也无法获取PNG文件 ${layer.path}:`, pngError)
+                        // 跳过这个文件
+                    }
                 }
-                
-                // 保持目录结构
-                modelFolder.file(`${layer.group}/${layer.name}.${extension}`, blob)
             }))
 
             // 3. 生成压缩包并下载
             const content = await zip.generateAsync({ type: "blob" })
             const link = document.createElement('a')
             link.href = URL.createObjectURL(content)
-            link.download = `${currentCharacter}_model_${format}.zip`
+            link.download = `${currentCharacter}_model_webp.zip`
             link.click()
             
             Swal.fire({
                 icon: 'success',
                 title: '打包成功',
-                text: `角色模型 (${format.toUpperCase()}) 打包成功！`,
+                text: '角色模型 (WebP格式) 打包成功！',
                 confirmButtonColor: '#10b981'
             })
 
@@ -535,11 +544,8 @@ const SimpleCharacterEditor: React.FC = () => {
                                         </Button>
                                     </div>
                                     <div style={{ display: 'flex', gap: '8px' }}>
-                                        <Button onClick={() => packageModel('png')} variant="primary" style={{ flex: 1, minHeight: '38px', fontSize: '12px' }}>
-                                            📦 打包 (PNG)
-                                        </Button>
-                                        <Button onClick={() => packageModel('webp')} variant="primary" style={{ flex: 1, minHeight: '38px', fontSize: '12px' }}>
-                                            📦 打包 (WebP)
+                                        <Button onClick={packageModel} variant="primary" style={{ flex: 1, minHeight: '38px', fontSize: '12px' }}>
+                                            📦 打包模型 (WebP)
                                         </Button>
                                     </div>
                                 </div>
